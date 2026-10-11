@@ -325,15 +325,15 @@ impl SystemMonitorApplet {
                 }
             });
 
-        self.core
-            .applet
-            .applet_tooltip(
-                button,
-                "System Monitor",
-                self.popup.is_some(),
-                Message::Surface,
-                None,
-            )
-            .into()
+        let button = self.core.applet.applet_tooltip(
+            button,
+            "System Monitor",
+            self.popup.is_some(),
+            Message::Surface,
+            None,
+        );
+
+        // Autosize so the panel shrinks back after switching from the chart view
+        self.core.applet.autosize_window(button).into()
     }
 }
