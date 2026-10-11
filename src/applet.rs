@@ -67,7 +67,8 @@ pub enum Message {
     TickGpu,
     Surface(surface::Action),
     PopupClosed(window::Id),
-    ToggleDisk(bool),
+    ToggleSection(String),
+    ToggleExpanded(String),
 }
 
 #[derive(Clone, Debug)]
@@ -183,13 +184,13 @@ impl Application for SystemMonitorApplet {
                     self.popup = None;
                 }
             }
-            Message::ToggleDisk(show) => {
-                self.config.popup_show_disk = show;
-                if let Some(handler) = &self.config_handler {
-                    if let Err(err) = handler.set("popup_show_disk", show) {
-                        println!("failed to save popup_show_disk: {err}");
-                    }
-                }
+            Message::ToggleSection(key) => {
+                toggle_key(&mut self.config.popup_collapsed, key);
+                self.save("popup_collapsed", &self.config.popup_collapsed);
+            }
+            Message::ToggleExpanded(key) => {
+                toggle_key(&mut self.config.popup_expanded, key);
+                self.save("popup_expanded", &self.config.popup_expanded);
             }
             Message::TickCpu => {
                 self.sys.refresh_cpu_usage();
@@ -300,9 +301,26 @@ pub fn base_background(theme: &Theme) -> container::Style {
     }
 }
 
+/// Adds `key` to the list, or removes it when already present
+fn toggle_key(list: &mut Vec<String>, key: String) {
+    if let Some(pos) = list.iter().position(|k| *k == key) {
+        list.remove(pos);
+    } else {
+        list.push(key);
+    }
+}
+
 const PANEL_ICON: &[u8] = include_bytes!("../res/panel-icon-symbolic.svg");
 
 impl SystemMonitorApplet {
+    fn save(&self, key: &str, value: &Vec<String>) {
+        if let Some(handler) = &self.config_handler {
+            if let Err(err) = handler.set(key, value) {
+                println!("failed to save {key}: {err}");
+            }
+        }
+    }
+
     fn popup_button(&'_ self) -> Element<'_, Message> {
         let have_popup = self.popup;
         let icon = cosmic::widget::icon::from_svg_bytes(PANEL_ICON).symbolic(true);

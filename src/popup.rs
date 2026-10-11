@@ -6,7 +6,7 @@
 use cosmic::{
     Element, Theme,
     iced::{Alignment, Length, Size},
-    widget::{Column, Row, container, text, toggler},
+    widget::{Column, Row, button, container, icon, text},
 };
 
 use crate::{
@@ -20,10 +20,10 @@ use crate::{
     config::{ComponentConfig, CpuView, IoView, PercentView},
 };
 
-const POPUP_WIDTH: f32 = 360.0;
+const POPUP_WIDTH: f32 = 340.0;
 const CHART_SIZE: Size = Size {
     width: POPUP_WIDTH,
-    height: 64.0,
+    height: 44.0,
 };
 
 fn format_bytes(bytes: u64) -> String {
@@ -166,33 +166,51 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
     column.into()
 }
 
-fn section<'a>(
-    title: String,
-    value: String,
-    switch: Option<Element<'a, Message>>,
-    chart: Element<'a, Message>,
-    legends: Vec<Element<'a, Message>>,
-) -> Element<'a, Message> {
-    let header = Row::new()
-        .push(container(text::heading(title)).width(Length::Fill))
-        .push(text::heading(value))
-        .push_maybe(switch)
-        .spacing(8)
-        .align_y(Alignment::Center);
-    let chart = container(chart)
-        .width(CHART_SIZE.width)
-        .height(CHART_SIZE.height)
-        .style(base_background);
-    Column::new()
-        .push(header)
-        .push(chart)
-        .push(Column::with_children(legends).spacing(2))
-        .spacing(6)
-        .width(POPUP_WIDTH)
-        .into()
-}
+const ARROW_DOWN: &[u8] = include_bytes!("../res/arrow-down-symbolic.svg");
+const ARROW_UP: &[u8] = include_bytes!("../res/arrow-up-symbolic.svg");
 
 impl SystemMonitorApplet {
+    /// A section with a clickable header. Collapsed sections only show the header,
+    /// which keeps the popup short on smaller screens.
+    fn section<'a>(
+        &self,
+        key: String,
+        title: String,
+        value: String,
+        chart: Element<'a, Message>,
+        legends: Vec<Element<'a, Message>>,
+    ) -> Element<'a, Message> {
+        let collapsed = self.config.popup_collapsed.contains(&key);
+        // Arrow points down while the section is open and up when it is collapsed
+        let arrow = icon::from_svg_bytes(if collapsed { ARROW_UP } else { ARROW_DOWN })
+            .symbolic(true)
+            .icon()
+            .size(16);
+        let header = Row::new()
+            .push(container(text::heading(title)).width(Length::Fill))
+            .push(text::heading(value))
+            .push(arrow)
+            .spacing(8)
+            .align_y(Alignment::Center);
+        let header = button::custom(header)
+            .class(cosmic::theme::Button::Text)
+            .padding([4, 6])
+            .width(Length::Fill)
+            .on_press(Message::ToggleSection(key));
+
+        let mut column = Column::new().push(header).spacing(4).width(POPUP_WIDTH);
+        if !collapsed {
+            let chart = container(chart)
+                .width(CHART_SIZE.width)
+                .height(CHART_SIZE.height)
+                .style(base_background);
+            column = column
+                .push(chart)
+                .push(Column::with_children(legends).spacing(2));
+        }
+        column.into()
+    }
+
     pub fn popup_view(&'_ self) -> Element<'_, Message> {
         let sections: Vec<Element<'_, Message>> = self
             .config
@@ -226,17 +244,17 @@ impl SystemMonitorApplet {
             .collect();
 
         Column::with_children(sections)
-            .spacing(16)
-            .padding(16)
+            .spacing(8)
+            .padding(12)
             .into()
     }
 
     fn cpu_section(&'_ self, color: Color) -> Element<'_, Message> {
         let usage = self.sys.global_cpu_usage();
-        section(
+        self.section(
+            "cpu".into(),
             "CPU".into(),
             format!("{usage:.1}%"),
-            None,
             SimpleHistoryChart::new(&self.global_cpu, 100.0, color).into(),
             vec![legend(
                 color,
@@ -257,10 +275,10 @@ impl SystemMonitorApplet {
                 format_bytes(swap_total)
             )
         };
-        section(
+        self.section(
+            "mem".into(),
             "Memory".into(),
             format!("{:.1}%", percent(used, total)),
-            None,
             SuperimposedHistoryChart::new(
                 &self.swap, swap_total, &front, &self.ram, total, &back,
             )
@@ -285,10 +303,10 @@ impl SystemMonitorApplet {
         let interval = self.config.sampling.net.update_interval;
         let down = Self::rate(&self.download, interval);
         let up = Self::rate(&self.upload, interval);
-        section(
+        self.section(
+            "net".into(),
             "Network".into(),
             format!("↓ {}/s  ↑ {}/s", format_bytes(down), format_bytes(up)),
-            None,
             SuperimposedHistoryChart::new_linked(&self.upload, &front, &self.download, &back)
                 .into(),
             vec![
@@ -299,17 +317,6 @@ impl SystemMonitorApplet {
     }
 
     fn disk_section(&'_ self, (back, front): (Color, Color)) -> Element<'_, Message> {
-        let switch = toggler(self.config.popup_show_disk).on_toggle(Message::ToggleDisk);
-        if !self.config.popup_show_disk {
-            // Collapsed: keep the header so the section can be switched back on
-            return Row::new()
-                .push(container(text::heading("Disk")).width(Length::Fill))
-                .push(switch)
-                .align_y(Alignment::Center)
-                .width(POPUP_WIDTH)
-                .into();
-        }
-
         let interval = self.config.sampling.disk.update_interval;
         let read = Self::rate(&self.disk_read, interval);
         let write = Self::rate(&self.disk_write, interval);
@@ -327,12 +334,40 @@ impl SystemMonitorApplet {
                     .padding(cosmic::iced::padding::top(6.0))
                     .into(),
             );
-            rows.extend(self.drives.iter().map(|drive| drive_row(drive, back)));
+            // Drives in use first, the rest behind an expandable row
+            let (mounted, others): (Vec<&Drive>, Vec<&Drive>) =
+                self.drives.iter().partition(|d| d.used.is_some());
+            rows.extend(mounted.into_iter().map(|drive| drive_row(drive, back)));
+            if !others.is_empty() {
+                let expanded = self.config.popup_expanded.iter().any(|k| k == "disk-others");
+                let arrow = icon::from_svg_bytes(if expanded { ARROW_DOWN } else { ARROW_UP })
+                    .symbolic(true)
+                    .icon()
+                    .size(14);
+                let toggle = Row::new()
+                    .push(
+                        container(text::caption(format!("Other drives ({})", others.len())))
+                            .width(Length::Fill),
+                    )
+                    .push(arrow)
+                    .align_y(Alignment::Center);
+                rows.push(
+                    button::custom(toggle)
+                        .class(cosmic::theme::Button::Text)
+                        .padding([2, 0])
+                        .width(Length::Fill)
+                        .on_press(Message::ToggleExpanded("disk-others".into()))
+                        .into(),
+                );
+                if expanded {
+                    rows.extend(others.into_iter().map(|drive| drive_row(drive, back)));
+                }
+            }
         }
-        section(
+        self.section(
+            "disk".into(),
             "Disk".into(),
             format!("R {}/s  W {}/s", format_bytes(read), format_bytes(write)),
-            Some(switch.into()),
             SuperimposedHistoryChart::new_linked(&self.disk_write, &front, &self.disk_read, &back)
                 .into(),
             rows,
@@ -350,10 +385,10 @@ impl SystemMonitorApplet {
         } else {
             "GPU".to_string()
         };
-        section(
+        self.section(
+            format!("gpu{idx}"),
             title,
             format!("{}%", data.usage),
-            None,
             SuperimposedHistoryChart::new(
                 &self.vram[idx],
                 data.total_vram,
