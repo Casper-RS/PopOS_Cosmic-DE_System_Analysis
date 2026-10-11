@@ -25,9 +25,8 @@ pub struct Config {
     pub tooltip_enabled: bool,
     /// Show a single icon in the panel and the charts in a popup when clicked
     pub popup_mode: bool,
-    /// Popup sections that are collapsed (`cpu`, `mem`, `disk`, `net`, `gpu0`, ...)
-    pub popup_collapsed: Vec<String>,
-    /// Popup parts that are hidden by default but expanded (`disk-others`)
+    /// Popup sections that are expanded (`cpu`, `mem`, `disk`, `net`, `gpu0`, ..., `disk-others`).
+    /// Everything else is collapsed, so the popup stays short by default.
     pub popup_expanded: Vec<String>,
 }
 
@@ -40,7 +39,6 @@ impl CosmicConfigEntry for Config {
         ConfigSet::set(&tx, "layout", &self.layout)?;
         ConfigSet::set(&tx, "tooltip_enabled", self.tooltip_enabled)?;
         ConfigSet::set(&tx, "popup_mode", self.popup_mode)?;
-        ConfigSet::set(&tx, "popup_collapsed", &self.popup_collapsed)?;
         ConfigSet::set(&tx, "popup_expanded", &self.popup_expanded)?;
         tx.commit()
     }
@@ -69,7 +67,6 @@ impl CosmicConfigEntry for Config {
         config_get!(layout, LayoutConfig);
         config_get!(tooltip_enabled, bool);
         config_get!(popup_mode, bool);
-        config_get!(popup_collapsed, Vec<String>);
         config_get!(popup_expanded, Vec<String>);
 
         if errors.is_empty() {
@@ -110,7 +107,6 @@ impl CosmicConfigEntry for Config {
                 "layout" => config_set!(layout, LayoutConfig),
                 "tooltip_enabled" => config_set!(tooltip_enabled, bool),
                 "popup_mode" => config_set!(popup_mode, bool),
-                "popup_collapsed" => config_set!(popup_collapsed, Vec<String>),
                 "popup_expanded" => config_set!(popup_expanded, Vec<String>),
                 _ => {}
             }
@@ -283,7 +279,6 @@ impl Default for Config {
             sampling: SamplingConfig::default(),
             tooltip_enabled: true,
             popup_mode: true,
-            popup_collapsed: Vec::new(),
             popup_expanded: Vec::new(),
         }
     }

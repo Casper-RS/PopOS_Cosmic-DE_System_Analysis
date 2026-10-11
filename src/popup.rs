@@ -170,8 +170,8 @@ const ARROW_DOWN: &[u8] = include_bytes!("../res/arrow-down-symbolic.svg");
 const ARROW_UP: &[u8] = include_bytes!("../res/arrow-up-symbolic.svg");
 
 impl SystemMonitorApplet {
-    /// A section with a clickable header. Collapsed sections only show the header,
-    /// which keeps the popup short on smaller screens.
+    /// A section with a clickable header. Sections start collapsed and only show the
+    /// header with the current value, which keeps the popup short on smaller screens.
     fn section<'a>(
         &self,
         key: String,
@@ -180,9 +180,9 @@ impl SystemMonitorApplet {
         chart: Element<'a, Message>,
         legends: Vec<Element<'a, Message>>,
     ) -> Element<'a, Message> {
-        let collapsed = self.config.popup_collapsed.contains(&key);
-        // Arrow points down while the section is open and up when it is collapsed
-        let arrow = icon::from_svg_bytes(if collapsed { ARROW_UP } else { ARROW_DOWN })
+        let collapsed = !self.config.popup_expanded.contains(&key);
+        // Arrow points down while the section is collapsed and up when it is open
+        let arrow = icon::from_svg_bytes(if collapsed { ARROW_DOWN } else { ARROW_UP })
             .symbolic(true)
             .icon()
             .size(16);
@@ -196,7 +196,7 @@ impl SystemMonitorApplet {
             .class(cosmic::theme::Button::Text)
             .padding([4, 6])
             .width(Length::Fill)
-            .on_press(Message::ToggleSection(key));
+            .on_press(Message::ToggleExpanded(key));
 
         let mut column = Column::new().push(header).spacing(4).width(POPUP_WIDTH);
         if !collapsed {
@@ -340,7 +340,7 @@ impl SystemMonitorApplet {
             rows.extend(mounted.into_iter().map(|drive| drive_row(drive, back)));
             if !others.is_empty() {
                 let expanded = self.config.popup_expanded.iter().any(|k| k == "disk-others");
-                let arrow = icon::from_svg_bytes(if expanded { ARROW_DOWN } else { ARROW_UP })
+                let arrow = icon::from_svg_bytes(if expanded { ARROW_UP } else { ARROW_DOWN })
                     .symbolic(true)
                     .icon()
                     .size(14);

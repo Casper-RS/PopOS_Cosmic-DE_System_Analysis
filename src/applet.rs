@@ -67,7 +67,6 @@ pub enum Message {
     TickGpu,
     Surface(surface::Action),
     PopupClosed(window::Id),
-    ToggleSection(String),
     ToggleExpanded(String),
 }
 
@@ -183,10 +182,6 @@ impl Application for SystemMonitorApplet {
                 if self.popup == Some(id) {
                     self.popup = None;
                 }
-            }
-            Message::ToggleSection(key) => {
-                toggle_key(&mut self.config.popup_collapsed, key);
-                self.save("popup_collapsed", &self.config.popup_collapsed);
             }
             Message::ToggleExpanded(key) => {
                 toggle_key(&mut self.config.popup_expanded, key);

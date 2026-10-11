@@ -12,5 +12,4 @@ These popup-related files are also available:
 
 - `tooltip_enabled` (`true`/`false`): show tooltips when hovering the in-panel charts
 - `popup_mode` (`true`/`false`, default `true`): show a single icon in the panel and the charts in a popup when it is clicked
-- `popup_collapsed` (list, e.g. `["disk", "gpu0"]`): popup sections that are collapsed. Keys: `cpu`, `mem`, `disk`, `net`, `gpu0`, `gpu1`, …
-- `popup_expanded` (list): parts that are hidden by default but expanded; currently only `disk-others` (unmounted drives)
+- `popup_expanded` (list, e.g. `["cpu", "gpu0"]`): popup sections that are open; all others start collapsed. Keys: `cpu`, `mem`, `disk`, `net`, `gpu0`, `gpu1`, …, plus `disk-others` for the unmounted drives list

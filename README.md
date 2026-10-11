@@ -14,7 +14,7 @@ A system resource monitor applet for the COSMIC desktop (Pop!_OS 24.04 and later
 | Change | Description |
 |---|---|
 | **Popup mode** | The panel shows one system-monitor icon instead of a row of charts. Clicking it opens a popup with a larger chart for every configured component, the current value in each header, and a color legend with details (RAM/swap used, download/upload rate, VRAM, …). It is on by default and can be switched off to get the original in-panel charts back (see [Configuration](#configuration)). |
-| **Collapsible popup** | Every section header has an arrow (down = open, up = collapsed). Click a header to collapse that section so the popup fits smaller screens. The choice is saved in `popup_collapsed`. |
+| **Collapsible popup** | Every section header has an arrow (down = collapsed, up = open). Sections start collapsed, showing just the header with the current value, so the popup fits smaller screens. Click a header to open it. Open sections are saved in `popup_expanded`. |
 | **Drives in the popup** | The Disk section lists the drives in use with their model, size and used space (LUKS/LVM layers are followed to the real drive). Drives that aren't mounted sit behind an expandable **Other drives** row. |
 | **Ignore specific GPUs** | GPUs whose PCI slot is listed in the `SYSMON_IGNORE_GPUS` environment variable are skipped. This is useful on desktops where an idle integrated GPU would otherwise show up next to the discrete one. |
 | **Flatpak manifest** | `res/dev.DBrox.CosmicSystemMonitor.json` now builds the local checkout and uses the `org.freedesktop.Platform` 25.08 runtime. |
