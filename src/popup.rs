@@ -10,6 +10,7 @@ use cosmic::{
 };
 
 use crate::{
+    fl,
     applet::{Message, SystemMonitorApplet, base_background},
     color::Color,
     components::{
@@ -150,7 +151,7 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
     let label = format!("{} ({})", drive.model, drive.name);
     let usage = match drive.used {
         Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
-        None => format!("{} · not mounted", format_bytes(drive.size)),
+        None => fl!("drive-not-mounted", size = format_bytes(drive.size)),
     };
     let mut column = Column::new()
         .push(
@@ -253,12 +254,12 @@ impl SystemMonitorApplet {
         let usage = self.sys.global_cpu_usage();
         self.section(
             "cpu".into(),
-            "CPU".into(),
+            fl!("cpu"),
             format!("{usage:.1}%"),
             SimpleHistoryChart::new(&self.global_cpu, 100.0, color).into(),
             vec![legend(
                 color,
-                format!("Usage ({} threads)", self.sys.cpus().len()),
+                fl!("cpu-usage", threads = self.sys.cpus().len()),
             )],
         )
     }
@@ -267,17 +268,17 @@ impl SystemMonitorApplet {
         let (used, total) = (self.sys.used_memory(), self.sys.total_memory());
         let (swap_used, swap_total) = (self.sys.used_swap(), self.sys.total_swap());
         let swap_label = if swap_total == 0 {
-            "Swap: not available".to_string()
+            fl!("swap-unavailable")
         } else {
-            format!(
-                "Swap: {} / {}",
-                format_bytes(swap_used),
-                format_bytes(swap_total)
+            fl!(
+                "swap-usage",
+                used = format_bytes(swap_used),
+                total = format_bytes(swap_total)
             )
         };
         self.section(
             "mem".into(),
-            "Memory".into(),
+            fl!("memory"),
             format!("{:.1}%", percent(used, total)),
             SuperimposedHistoryChart::new(
                 &self.swap, swap_total, &front, &self.ram, total, &back,
@@ -286,7 +287,7 @@ impl SystemMonitorApplet {
             vec![
                 legend(
                     back,
-                    format!("RAM: {} / {}", format_bytes(used), format_bytes(total)),
+                    fl!("ram-usage", used = format_bytes(used), total = format_bytes(total)),
                 ),
                 legend(front, swap_label),
             ],
@@ -305,13 +306,13 @@ impl SystemMonitorApplet {
         let up = Self::rate(&self.upload, interval);
         self.section(
             "net".into(),
-            "Network".into(),
+            fl!("network"),
             format!("↓ {}/s  ↑ {}/s", format_bytes(down), format_bytes(up)),
             SuperimposedHistoryChart::new_linked(&self.upload, &front, &self.download, &back)
                 .into(),
             vec![
-                legend(back, format!("Download: {}/s", format_bytes(down))),
-                legend(front, format!("Upload: {}/s", format_bytes(up))),
+                legend(back, fl!("download-rate", rate = format_bytes(down))),
+                legend(front, fl!("upload-rate", rate = format_bytes(up))),
             ],
         )
     }
@@ -322,15 +323,15 @@ impl SystemMonitorApplet {
         let write = Self::rate(&self.disk_write, interval);
 
         let mut rows = vec![
-            legend(back, format!("Read: {}/s", format_bytes(read))),
-            legend(front, format!("Write: {}/s", format_bytes(write))),
+            legend(back, fl!("read-rate", rate = format_bytes(read))),
+            legend(front, fl!("write-rate", rate = format_bytes(write))),
         ];
         if !self.drives.is_empty() {
             let total: u64 = self.drives.iter().map(|d| d.size).sum();
             rows.push(
                 Row::new()
-                    .push(container(text::caption_heading("Drives")).width(Length::Fill))
-                    .push(text::caption(format!("{} total", format_bytes(total))))
+                    .push(container(text::caption_heading(fl!("drives"))).width(Length::Fill))
+                    .push(text::caption(fl!("drives-total", size = format_bytes(total))))
                     .padding(cosmic::iced::padding::top(6.0))
                     .into(),
             );
@@ -346,7 +347,7 @@ impl SystemMonitorApplet {
                     .size(14);
                 let toggle = Row::new()
                     .push(
-                        container(text::caption(format!("Other drives ({})", others.len())))
+                        container(text::caption(fl!("other-drives", count = others.len())))
                             .width(Length::Fill),
                     )
                     .push(arrow)
@@ -366,8 +367,12 @@ impl SystemMonitorApplet {
         }
         self.section(
             "disk".into(),
-            "Disk".into(),
-            format!("R {}/s  W {}/s", format_bytes(read), format_bytes(write)),
+            fl!("disk"),
+            fl!(
+                "disk-summary",
+                read = format_bytes(read),
+                write = format_bytes(write)
+            ),
             SuperimposedHistoryChart::new_linked(&self.disk_write, &front, &self.disk_read, &back)
                 .into(),
             rows,
@@ -381,9 +386,9 @@ impl SystemMonitorApplet {
         (back, front): (Color, Color),
     ) -> Element<'_, Message> {
         let title = if self.gpus.num_gpus() > 1 {
-            format!("GPU {idx}")
+            fl!("gpu-numbered", index = idx)
         } else {
-            "GPU".to_string()
+            fl!("gpu")
         };
         self.section(
             format!("gpu{idx}"),
@@ -399,14 +404,14 @@ impl SystemMonitorApplet {
             )
             .into(),
             vec![
-                legend(back, format!("Usage: {}%", data.usage)),
+                legend(back, fl!("gpu-usage", usage = data.usage)),
                 legend(
                     front,
-                    format!(
-                        "VRAM: {} / {} ({:.1}%)",
-                        format_bytes(data.used_vram),
-                        format_bytes(data.total_vram),
-                        percent(data.used_vram, data.total_vram)
+                    fl!(
+                        "gpu-vram",
+                        used = format_bytes(data.used_vram),
+                        total = format_bytes(data.total_vram),
+                        percent = format!("{:.1}", percent(data.used_vram, data.total_vram))
                     ),
                 ),
             ],

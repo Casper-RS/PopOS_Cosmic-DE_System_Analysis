@@ -360,7 +360,7 @@ impl SystemMonitorApplet {
 
         let button = self.core.applet.applet_tooltip(
             button,
-            "System Monitor",
+            crate::fl!("system-monitor"),
             self.popup.is_some(),
             Message::Surface,
             None,
