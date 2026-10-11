@@ -3,7 +3,7 @@
 use cosmic::{
     Application, Apply as _, Element, Theme,
     app::{Core, Task},
-    cosmic_config,
+    cosmic_config::{self, ConfigSet},
     iced::{Color, Rectangle, Subscription, window},
     surface::{
         self,
@@ -17,7 +17,10 @@ use sysinfo::{
 };
 
 use crate::{
-    components::gpu::Gpus,
+    components::{
+        gpu::Gpus,
+        storage::{self, Drive},
+    },
     config::{ComponentConfig, Config, config_subscription},
     history::History,
 };
@@ -28,7 +31,6 @@ pub struct SystemMonitorApplet {
     pub core: Core,
     pub config: Config,
     pub popup: Option<window::Id>,
-    #[allow(dead_code)]
     config_handler: Option<cosmic_config::Config>,
 
     pub sys: System,
@@ -51,6 +53,8 @@ pub struct SystemMonitorApplet {
     pub gpu_usage: Vec<History>,
     /// amount written between refresh of `sysinfo::Disks`. (DOES NOT STORE RATE)
     pub vram: Vec<History>,
+    /// physical drives and their used space, refreshed with the disk ticks
+    pub drives: Vec<Drive>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +67,7 @@ pub enum Message {
     TickGpu,
     Surface(surface::Action),
     PopupClosed(window::Id),
+    ToggleDisk(bool),
 }
 
 #[derive(Clone, Debug)]
@@ -124,9 +129,10 @@ impl Application for SystemMonitorApplet {
             ),
             nets: Networks::new_with_refreshed_list(),
             disks: Disks::new_with_refreshed_list_specifics(
-                DiskRefreshKind::nothing().with_io_usage(),
+                DiskRefreshKind::nothing().with_io_usage().with_storage(),
             ),
             gpus,
+            drives: Vec::new(),
         };
 
         (app, Task::none())
@@ -177,6 +183,14 @@ impl Application for SystemMonitorApplet {
                     self.popup = None;
                 }
             }
+            Message::ToggleDisk(show) => {
+                self.config.popup_show_disk = show;
+                if let Some(handler) = &self.config_handler {
+                    if let Err(err) = handler.set("popup_show_disk", show) {
+                        println!("failed to save popup_show_disk: {err}");
+                    }
+                }
+            }
             Message::TickCpu => {
                 self.sys.refresh_cpu_usage();
                 self.global_cpu.push(self.sys.global_cpu_usage());
@@ -201,8 +215,10 @@ impl Application for SystemMonitorApplet {
                 self.download.push(received);
             }
             Message::TickDisk => {
-                self.disks
-                    .refresh_specifics(true, DiskRefreshKind::nothing().with_io_usage());
+                self.disks.refresh_specifics(
+                    true,
+                    DiskRefreshKind::nothing().with_io_usage().with_storage(),
+                );
                 let (read, written) = self
                     .disks
                     .iter()
@@ -212,6 +228,10 @@ impl Application for SystemMonitorApplet {
                     });
                 self.disk_read.push(read);
                 self.disk_write.push(written);
+                // Drive sizes only matter for the popup, skip the sysfs reads otherwise
+                if self.popup.is_some() || self.drives.is_empty() {
+                    self.drives = storage::drives(&self.disks);
+                }
             }
             Message::TickGpu => {
                 self.gpus.refresh();

@@ -5,6 +5,7 @@ mod components {
     pub mod bar;
     pub mod gpu;
     pub mod run;
+    pub mod storage;
 }
 mod popup;
 mod views;

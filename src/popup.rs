@@ -6,7 +6,7 @@
 use cosmic::{
     Element, Theme,
     iced::{Alignment, Length, Size},
-    widget::{Column, Row, container, text},
+    widget::{Column, Row, container, text, toggler},
 };
 
 use crate::{
@@ -14,6 +14,7 @@ use crate::{
     color::Color,
     components::{
         gpu::GpuData,
+        storage::Drive,
         run::{SimpleHistoryChart, SuperimposedHistoryChart},
     },
     config::{ComponentConfig, CpuView, IoView, PercentView},
@@ -120,15 +121,63 @@ fn legend<'a>(color: Color, label: String) -> Element<'a, Message> {
         .into()
 }
 
+/// Thin horizontal bar filled to `used / total`
+fn usage_bar<'a>(used: u64, total: u64, color: Color) -> Element<'a, Message> {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let filled = (percent(used, total) * 10.0).round().clamp(0.0, 1000.0) as u16;
+    let fill = container(Column::new())
+        .width(Length::FillPortion(filled.max(1)))
+        .height(Length::Fill)
+        .style(move |theme: &Theme| container::Style {
+            background: Some(cosmic::iced::Color::from(color.as_cosmic_color(theme)).into()),
+            border: cosmic::iced::Border {
+                radius: 2.0.into(),
+                ..Default::default()
+            },
+            ..container::Style::default()
+        });
+    let rest = container(Column::new())
+        .width(Length::FillPortion((1000 - filled).max(1)))
+        .height(Length::Fill);
+    container(Row::new().push(fill).push(rest))
+        .width(Length::Fill)
+        .height(5)
+        .style(base_background)
+        .into()
+}
+
+fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
+    let label = format!("{} ({})", drive.model, drive.name);
+    let usage = match drive.used {
+        Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
+        None => format!("{} · not mounted", format_bytes(drive.size)),
+    };
+    let mut column = Column::new()
+        .push(
+            Row::new()
+                .push(container(text::caption(label)).width(Length::Fill))
+                .push(text::caption(usage))
+                .spacing(8),
+        )
+        .spacing(3);
+    if let Some(used) = drive.used {
+        column = column.push(usage_bar(used, drive.size, color));
+    }
+    column.into()
+}
+
 fn section<'a>(
     title: String,
     value: String,
+    switch: Option<Element<'a, Message>>,
     chart: Element<'a, Message>,
     legends: Vec<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     let header = Row::new()
         .push(container(text::heading(title)).width(Length::Fill))
         .push(text::heading(value))
+        .push_maybe(switch)
+        .spacing(8)
         .align_y(Alignment::Center);
     let chart = container(chart)
         .width(CHART_SIZE.width)
@@ -187,6 +236,7 @@ impl SystemMonitorApplet {
         section(
             "CPU".into(),
             format!("{usage:.1}%"),
+            None,
             SimpleHistoryChart::new(&self.global_cpu, 100.0, color).into(),
             vec![legend(
                 color,
@@ -210,6 +260,7 @@ impl SystemMonitorApplet {
         section(
             "Memory".into(),
             format!("{:.1}%", percent(used, total)),
+            None,
             SuperimposedHistoryChart::new(
                 &self.swap, swap_total, &front, &self.ram, total, &back,
             )
@@ -237,6 +288,7 @@ impl SystemMonitorApplet {
         section(
             "Network".into(),
             format!("↓ {}/s  ↑ {}/s", format_bytes(down), format_bytes(up)),
+            None,
             SuperimposedHistoryChart::new_linked(&self.upload, &front, &self.download, &back)
                 .into(),
             vec![
@@ -247,18 +299,43 @@ impl SystemMonitorApplet {
     }
 
     fn disk_section(&'_ self, (back, front): (Color, Color)) -> Element<'_, Message> {
+        let switch = toggler(self.config.popup_show_disk).on_toggle(Message::ToggleDisk);
+        if !self.config.popup_show_disk {
+            // Collapsed: keep the header so the section can be switched back on
+            return Row::new()
+                .push(container(text::heading("Disk")).width(Length::Fill))
+                .push(switch)
+                .align_y(Alignment::Center)
+                .width(POPUP_WIDTH)
+                .into();
+        }
+
         let interval = self.config.sampling.disk.update_interval;
         let read = Self::rate(&self.disk_read, interval);
         let write = Self::rate(&self.disk_write, interval);
+
+        let mut rows = vec![
+            legend(back, format!("Read: {}/s", format_bytes(read))),
+            legend(front, format!("Write: {}/s", format_bytes(write))),
+        ];
+        if !self.drives.is_empty() {
+            let total: u64 = self.drives.iter().map(|d| d.size).sum();
+            rows.push(
+                Row::new()
+                    .push(container(text::caption_heading("Drives")).width(Length::Fill))
+                    .push(text::caption(format!("{} total", format_bytes(total))))
+                    .padding(cosmic::iced::padding::top(6.0))
+                    .into(),
+            );
+            rows.extend(self.drives.iter().map(|drive| drive_row(drive, back)));
+        }
         section(
             "Disk".into(),
             format!("R {}/s  W {}/s", format_bytes(read), format_bytes(write)),
+            Some(switch.into()),
             SuperimposedHistoryChart::new_linked(&self.disk_write, &front, &self.disk_read, &back)
                 .into(),
-            vec![
-                legend(back, format!("Read: {}/s", format_bytes(read))),
-                legend(front, format!("Write: {}/s", format_bytes(write))),
-            ],
+            rows,
         )
     }
 
@@ -276,6 +353,7 @@ impl SystemMonitorApplet {
         section(
             title,
             format!("{}%", data.usage),
+            None,
             SuperimposedHistoryChart::new(
                 &self.vram[idx],
                 data.total_vram,

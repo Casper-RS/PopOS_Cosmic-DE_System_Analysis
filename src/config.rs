@@ -25,6 +25,8 @@ pub struct Config {
     pub tooltip_enabled: bool,
     /// Show a single icon in the panel and the charts in a popup when clicked
     pub popup_mode: bool,
+    /// Show the disk section in the popup, toggled from the popup itself
+    pub popup_show_disk: bool,
 }
 
 impl CosmicConfigEntry for Config {
@@ -36,6 +38,7 @@ impl CosmicConfigEntry for Config {
         ConfigSet::set(&tx, "layout", &self.layout)?;
         ConfigSet::set(&tx, "tooltip_enabled", self.tooltip_enabled)?;
         ConfigSet::set(&tx, "popup_mode", self.popup_mode)?;
+        ConfigSet::set(&tx, "popup_show_disk", self.popup_show_disk)?;
         tx.commit()
     }
     fn get_entry(config: &CosmicConfig) -> Result<Self, (Vec<ConfigError>, Self)> {
@@ -63,6 +66,7 @@ impl CosmicConfigEntry for Config {
         config_get!(layout, LayoutConfig);
         config_get!(tooltip_enabled, bool);
         config_get!(popup_mode, bool);
+        config_get!(popup_show_disk, bool);
 
         if errors.is_empty() {
             Ok(default)
@@ -102,6 +106,7 @@ impl CosmicConfigEntry for Config {
                 "layout" => config_set!(layout, LayoutConfig),
                 "tooltip_enabled" => config_set!(tooltip_enabled, bool),
                 "popup_mode" => config_set!(popup_mode, bool),
+                "popup_show_disk" => config_set!(popup_show_disk, bool),
                 _ => {}
             }
         }
@@ -273,6 +278,7 @@ impl Default for Config {
             sampling: SamplingConfig::default(),
             tooltip_enabled: true,
             popup_mode: true,
+            popup_show_disk: true,
         }
     }
 }
