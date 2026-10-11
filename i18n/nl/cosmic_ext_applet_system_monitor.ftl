@@ -23,3 +23,15 @@ drive-not-mounted = { $size } · niet gekoppeld
 other-drives = Overige schijven ({ $count })
 gpu-usage = Gebruik: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
+
+# Panel tooltips
+tooltip-cpu = CPU: { $usage }%
+tooltip-cpu-core = CPU{ $index }: { $usage }%
+tooltip-cpu-cores = CPU: { $count } kernen totaal
+tooltip-ram = RAM: { $used } / { $total } ({ $percent })
+tooltip-swap = Swap: { $used } / { $total } ({ $percent })
+tooltip-swap-unavailable = Swap: niet beschikbaar
+tooltip-disk-read = Schijf lezen: { $rate }/s
+tooltip-disk-write = Schijf schrijven: { $rate }/s
+tooltip-gpu-usage = GPU{ $index } gebruik: { $usage }%
+tooltip-gpu-vram = GPU{ $index } VRAM: { $used }/{ $total } ({ $percent })

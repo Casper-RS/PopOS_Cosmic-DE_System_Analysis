@@ -23,3 +23,15 @@ drive-not-mounted = { $size } · não montada
 other-drives = Outras unidades ({ $count })
 gpu-usage = Uso: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
+
+# Panel tooltips
+tooltip-cpu = CPU: { $usage }%
+tooltip-cpu-core = CPU{ $index }: { $usage }%
+tooltip-cpu-cores = CPU: { $count } núcleos no total
+tooltip-ram = RAM: { $used } / { $total } ({ $percent })
+tooltip-swap = Swap: { $used } / { $total } ({ $percent })
+tooltip-swap-unavailable = Swap: indisponível
+tooltip-disk-read = Leitura do disco: { $rate }/s
+tooltip-disk-write = Escrita no disco: { $rate }/s
+tooltip-gpu-usage = GPU{ $index } uso: { $usage }%
+tooltip-gpu-vram = GPU{ $index } VRAM: { $used }/{ $total } ({ $percent })
