@@ -22,10 +22,6 @@ A system resource monitor applet for the COSMIC desktop (Pop!_OS 24.04 and later
 
 <img width="367" alt="Drive overview in the Disk section" src="https://github.com/user-attachments/assets/679ce83f-6e6d-48ac-bfd7-0dae043b4f5a" />
 
-### New change
-
-<!-- Paste a screenshot of the latest change here -->
-
 ### Panel charts (popup mode off)
 
 ![screenshot of the in-panel charts](./res/screenshot.png)
@@ -41,12 +37,6 @@ A system resource monitor applet for the COSMIC desktop (Pop!_OS 24.04 and later
 | **Ignore specific GPUs** | GPUs whose PCI slot is listed in the `SYSMON_IGNORE_GPUS` environment variable are skipped. This is useful on desktops where an idle integrated GPU would otherwise show up next to the discrete one. |
 | **Full-width charts** | Charts fill their area instead of being cut off at 100 px, which showed in the larger popup charts. |
 | **Flatpak manifest** | `res/dev.DBrox.CosmicSystemMonitor.json` now builds the local checkout and uses the `org.freedesktop.Platform` 25.08 runtime. |
-
-Everything else (components, colors, sampling, layout) behaves exactly like the original
-and is configured the same way.
-
-The app ID is still `dev.DBrox.CosmicSystemMonitor`, so this fork replaces the original
-applet if it is installed and reuses its configuration.
 
 ## Installing
 
@@ -70,38 +60,6 @@ applet if it is installed and reuses its configuration.
 
 If you are upgrading an applet that is already in the panel, restart the panel to load the
 new version (log out and back in, or run `pkill -x cosmic-panel`; COSMIC restarts it).
-
-### Building from source
-
-Clone the repository:
-
-```sh
-git clone https://github.com/Casper-RS/PopOS_Cosmic-DE_System_Analysis
-cd PopOS_Cosmic-DE_System_Analysis
-```
-
-**Native build.** Install the build dependencies (`rustc`/`cargo` 1.91 or newer, `just`, `libxkbcommon-dev`), then:
-
-```sh
-just build-release
-sudo just install
-# or
-just install-local
-```
-
-For other packaging methods:
-
-- `deb`: run `just build-deb` and `sudo just install-deb`
-- `rpm`: run `just build-rpm` and `sudo just install-rpm`
-
-For vendoring, use `just vendor` and `just vendor-build`.
-
-**Flatpak build.** Install `flatpak-builder` (or the `org.flatpak.Builder` Flatpak) together with
-the `org.freedesktop.Sdk//25.08` and `org.freedesktop.Sdk.Extension.rust-stable//25.08` runtimes, then:
-
-```sh
-flatpak-builder --user --install --force-clean builddir res/dev.DBrox.CosmicSystemMonitor.json
-```
 
 ## Configuration
 
@@ -136,27 +94,6 @@ flatpak override --user --env=SYSMON_IGNORE_GPUS=0000:12:00.0 dev.DBrox.CosmicSy
 
 For a native install, export `SYSMON_IGNORE_GPUS` in the environment that starts your session.
 Restart the panel afterwards.
-
-## Roadmap
-
-Theming:
-- [x] Layout
-- [x] Custom colors
-- [ ] Transparency
-
-Resource monitoring:
-- [x] CPU usage (global and per core)
-- [x] Memory usage (RAM and Swap)
-- [x] Network I/O
-- [x] Disk I/O
-- [x] GPU (usage and VRAM)
-- [ ] Thermal sensors
-
-[Component](./docs/Components.md) views
-- [x] Run chart views (percentage and I/O)
-- [x] Bar chart views (percentage and CPU cores)
-- [x] Popup with charts and current values *(this fork)*
-- [ ] Text views
 
 ## Credits
 
