@@ -8,3 +8,7 @@ The configuration is divided in 3 files:
 - [Sampling](./Sampling.md): controls the speed of the sampling and how many samples are stored for each of the resources monitored
 - [Layout](./Layout.md): controls the padding and spacing of the components
 
+Two single-value files are also available:
+
+- `tooltip_enabled` (`true`/`false`): show tooltips when hovering the in-panel charts
+- `popup_mode` (`true`/`false`, default `true`): show a single icon in the panel and the charts in a popup when it is clicked

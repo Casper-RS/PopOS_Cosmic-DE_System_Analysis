@@ -1,9 +1,11 @@
 {
   "id": "dev.DBrox.CosmicSystemMonitor",
   "runtime": "org.freedesktop.Platform",
-  "runtime-version": "24.08",
+  "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
-  "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.rust-stable"
+  ],
   "base": "com.system76.Cosmic.BaseApp",
   "base-version": "stable",
   "command": "cosmic-ext-applet-system-monitor",
@@ -38,9 +40,14 @@
       ],
       "sources": [
         {
-          "type": "git",
-          "url": "https://github.com/D-Brox/cosmic-ext-applet-system-monitor.git",
-          "commit": "b5ee81de4c4e1033e017eab22b1b40d02a672ba7"
+          "type": "dir",
+          "path": "..",
+          "skip": [
+            "target",
+            ".flatpak-builder",
+            "build-flatpak",
+            "repo"
+          ]
         },
         "generated-sources.json"
       ]
