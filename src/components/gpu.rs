@@ -54,6 +54,13 @@ impl Gpus {
                             })
                             .ok()?;
 
+                        // Skip GPUs listed (by PCI slot) in SYSMON_IGNORE_GPUS
+                        if let Some(slot) = uevent.get("PCI_SLOT_NAME") {
+                            if ignored_gpus().iter().any(|ignored| ignored == slot) {
+                                return None;
+                            }
+                        }
+
                         // Find vendor, since for Nvidia we need to use nvml.
                         // For this, we test the vendor file, with the PCI_ID in uevent as backup.
                         // Nvidia is a pain, so driver is probably needed as backup too.
@@ -94,6 +101,19 @@ impl Gpus {
     pub fn data(&self) -> Vec<GpuData> {
         self.inner.iter().map(|gpu| gpu.data).collect()
     }
+}
+
+/// PCI slots (e.g. `0000:12:00.0`) from the comma separated `SYSMON_IGNORE_GPUS` env var.
+fn ignored_gpus() -> Vec<String> {
+    std::env::var("SYSMON_IGNORE_GPUS")
+        .map(|var| {
+            var.split(',')
+                .map(str::trim)
+                .filter(|slot| !slot.is_empty())
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn read_syspath(sysfs_path: &Path, file: &str) -> Option<u64> {
