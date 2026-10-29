@@ -19,8 +19,8 @@ write-rate = Schrijven: { $rate }/s
 disk-summary = L { $read }/s  S { $write }/s
 drives = Schijven
 drives-total = { $size } totaal
-drive-not-mounted = { $size } · niet gekoppeld
-other-drives = Overige schijven ({ $count })
+drives-mounted = Gekoppeld ({ $count })
+drives-not-mounted = Niet gekoppeld ({ $count })
 gpu-usage = Gebruik: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
 

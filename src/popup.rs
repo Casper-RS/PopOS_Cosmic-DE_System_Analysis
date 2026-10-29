@@ -5,7 +5,10 @@
 
 use cosmic::{
     Element, Theme,
-    iced::{Alignment, Length, Size},
+    iced::{
+        Alignment, Length, Size,
+        widget::text::Wrapping,
+    },
     widget::{Column, Row, button, container, icon, text},
 };
 
@@ -104,11 +107,22 @@ fn io_colors(vis: &[IoView], default: (Color, Color)) -> (Color, Color) {
     }
 }
 
-fn with_temp(value: String, temp: Option<f32>) -> String {
-    match temp {
-        Some(celsius) => format!("{value}  ·  {}", format_celsius(celsius)),
-        None => value,
-    }
+fn dim_color(theme: &Theme) -> cosmic::iced::Color {
+    let mut color = cosmic::iced::Color::from(theme.cosmic().on_bg_color());
+    color.a = 0.6;
+    color
+}
+
+fn dim_text<'a>(label: impl Into<std::borrow::Cow<'a, str>> + 'a) -> Element<'a, Message> {
+    text::caption(label)
+        .wrapping(Wrapping::None)
+        .class(cosmic::theme::Text::Custom(|theme| {
+            cosmic::iced::widget::text::Style {
+                color: Some(dim_color(theme)),
+                ..Default::default()
+            }
+        }))
+        .into()
 }
 
 fn legend<'a>(color: Color, label: String) -> Element<'a, Message> {
@@ -159,14 +173,20 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
     let label = format!("{} ({})", drive.model, drive.name);
     let usage = match drive.used {
         Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
-        None => fl!("drive-not-mounted", size = format_bytes(drive.size)),
+        None => format_bytes(drive.size),
     };
-    let usage = with_temp(usage, drive.temp);
+    let mut details = Row::new()
+        .push(text::caption(usage).wrapping(Wrapping::None))
+        .spacing(6);
+    if let Some(celsius) = drive.temp {
+        details = details.push(dim_text("·")).push(dim_text(format_celsius(celsius)));
+    }
+    // The name gets the space that is left and wraps, so the details always fit
     let mut column = Column::new()
         .push(
             Row::new()
-                .push(container(text::caption(label)).width(Length::Fill))
-                .push(text::caption(usage))
+                .push(text::caption(label).width(Length::Fill))
+                .push(details)
                 .spacing(8),
         )
         .spacing(3);
@@ -187,6 +207,7 @@ impl SystemMonitorApplet {
         key: String,
         title: String,
         value: String,
+        temp: Option<f32>,
         chart: Element<'a, Message>,
         legends: Vec<Element<'a, Message>>,
     ) -> Element<'a, Message> {
@@ -196,9 +217,16 @@ impl SystemMonitorApplet {
             .symbolic(true)
             .icon()
             .size(16);
+        let mut name = Row::new()
+            .push(text::heading(title))
+            .spacing(8)
+            .align_y(Alignment::Center);
+        if let Some(celsius) = temp {
+            name = name.push(dim_text(format_celsius(celsius)));
+        }
         let header = Row::new()
-            .push(container(text::heading(title)).width(Length::Fill))
-            .push(text::heading(value))
+            .push(container(name).width(Length::Fill))
+            .push(text::heading(value).wrapping(Wrapping::None))
             .push(arrow)
             .spacing(8)
             .align_y(Alignment::Center);
@@ -264,7 +292,8 @@ impl SystemMonitorApplet {
         self.section(
             "cpu".into(),
             fl!("cpu"),
-            with_temp(format!("{usage:.1}%"), self.cpu_temp),
+            format!("{usage:.1}%"),
+            self.cpu_temp,
             SimpleHistoryChart::new(&self.global_cpu, 100.0, color).into(),
             vec![legend(
                 color,
@@ -289,6 +318,7 @@ impl SystemMonitorApplet {
             "mem".into(),
             fl!("memory"),
             format!("{:.1}%", percent(used, total)),
+            None,
             SuperimposedHistoryChart::new(
                 &self.swap, swap_total, &front, &self.ram, total, &back,
             )
@@ -317,6 +347,7 @@ impl SystemMonitorApplet {
             "net".into(),
             fl!("network"),
             format!("↓ {}/s  ↑ {}/s", format_bytes(down), format_bytes(up)),
+            None,
             SuperimposedHistoryChart::new_linked(&self.upload, &front, &self.download, &back)
                 .into(),
             vec![
@@ -344,21 +375,22 @@ impl SystemMonitorApplet {
                     .padding(cosmic::iced::padding::top(6.0))
                     .into(),
             );
-            // Drives in use first, the rest behind an expandable row
             let (mounted, others): (Vec<&Drive>, Vec<&Drive>) =
                 self.drives.iter().partition(|d| d.used.is_some());
-            rows.extend(mounted.into_iter().map(|drive| drive_row(drive, back)));
-            if !others.is_empty() {
-                let expanded = self.config.popup_expanded.iter().any(|k| k == "disk-others");
+            for (key, label, drives) in [
+                ("disk-mounted", fl!("drives-mounted", count = mounted.len()), mounted),
+                ("disk-others", fl!("drives-not-mounted", count = others.len()), others),
+            ] {
+                if drives.is_empty() {
+                    continue;
+                }
+                let expanded = self.config.popup_expanded.iter().any(|k| k == key);
                 let arrow = icon::from_svg_bytes(if expanded { ARROW_UP } else { ARROW_DOWN })
                     .symbolic(true)
                     .icon()
                     .size(14);
                 let toggle = Row::new()
-                    .push(
-                        container(text::caption(fl!("other-drives", count = others.len())))
-                            .width(Length::Fill),
-                    )
+                    .push(container(text::caption(label)).width(Length::Fill))
                     .push(arrow)
                     .align_y(Alignment::Center);
                 rows.push(
@@ -366,14 +398,20 @@ impl SystemMonitorApplet {
                         .class(cosmic::theme::Button::Text)
                         .padding([2, 0])
                         .width(Length::Fill)
-                        .on_press(Message::ToggleExpanded("disk-others".into()))
+                        .on_press(Message::ToggleExpanded(key.into()))
                         .into(),
                 );
                 if expanded {
-                    rows.extend(others.into_iter().map(|drive| drive_row(drive, back)));
+                    rows.extend(drives.into_iter().map(|drive| drive_row(drive, back)));
                 }
             }
         }
+        let hottest = self
+            .drives
+            .iter()
+            .filter(|d| d.used.is_some())
+            .filter_map(|d| d.temp)
+            .reduce(f32::max);
         self.section(
             "disk".into(),
             fl!("disk"),
@@ -382,6 +420,7 @@ impl SystemMonitorApplet {
                 read = format_bytes(read),
                 write = format_bytes(write)
             ),
+            hottest,
             SuperimposedHistoryChart::new_linked(&self.disk_write, &front, &self.disk_read, &back)
                 .into(),
             rows,
@@ -402,7 +441,8 @@ impl SystemMonitorApplet {
         self.section(
             format!("gpu{idx}"),
             title,
-            with_temp(format!("{}%", data.usage), data.temp),
+            format!("{}%", data.usage),
+            data.temp,
             SuperimposedHistoryChart::new(
                 &self.vram[idx],
                 data.total_vram,

@@ -19,8 +19,8 @@ write-rate = Write: { $rate }/s
 disk-summary = R { $read }/s  W { $write }/s
 drives = Drives
 drives-total = { $size } total
-drive-not-mounted = { $size } · not mounted
-other-drives = Other drives ({ $count })
+drives-mounted = Mounted ({ $count })
+drives-not-mounted = Not mounted ({ $count })
 gpu-usage = Usage: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
 

@@ -19,8 +19,8 @@ write-rate = Írás: { $rate }/s
 disk-summary = O { $read }/s  Í { $write }/s
 drives = Meghajtók
 drives-total = Összesen { $size }
-drive-not-mounted = { $size } · nincs csatolva
-other-drives = További meghajtók ({ $count })
+drives-mounted = Csatolt ({ $count })
+drives-not-mounted = Nem csatolt ({ $count })
 gpu-usage = Használat: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
 
