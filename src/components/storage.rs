@@ -7,6 +7,8 @@ use std::fs::{read_dir, read_link, read_to_string};
 use std::path::Path;
 use sysinfo::Disks;
 
+use crate::components::temp;
+
 const SYS_BLOCK: &str = "/sys/class/block";
 
 #[derive(Clone, Debug)]
@@ -18,6 +20,8 @@ pub struct Drive {
     pub size: u64,
     /// Space used by mounted filesystems on this drive, `None` if nothing is mounted
     pub used: Option<u64>,
+    /// Degrees Celsius, `None` if the drive has no sensor
+    pub temp: Option<f32>,
 }
 
 /// Lists physical drives and adds up the used space of the filesystems mounted on them.
@@ -62,6 +66,7 @@ pub fn drives(disks: &Disks) -> Vec<Drive> {
                 .unwrap_or_else(|| name.clone());
             Some(Drive {
                 used: used.get(&name).copied(),
+                temp: temp::device_temp(&path.join("device")),
                 model,
                 size: sectors * 512,
                 name,

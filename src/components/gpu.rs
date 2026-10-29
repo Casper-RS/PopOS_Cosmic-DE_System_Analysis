@@ -1,7 +1,9 @@
-use nvml_wrapper::Nvml;
+use nvml_wrapper::{Nvml, enum_wrappers::device::TemperatureSensor};
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
+
+use crate::components::temp;
 
 const NV_VENDOR_ID: u16 = 0x10DE;
 
@@ -14,6 +16,8 @@ pub struct GpuData {
     pub usage: u64,
     pub used_vram: u64,
     pub total_vram: u64,
+    /// Degrees Celsius, `None` if the GPU has no sensor or is asleep
+    pub temp: Option<f32>,
 }
 
 struct Gpu {
@@ -149,6 +153,7 @@ impl Gpu {
                 usage: read_syspath(&sysfs_path, "gpu_busy_percent")?,
                 used_vram: read_syspath(&sysfs_path, "mem_info_vram_used")?,
                 total_vram: read_syspath(&sysfs_path, "mem_info_vram_total")?,
+                temp: temp::device_temp(&sysfs_path),
             },
             vendor: GpuType::PlugAndPlay { sysfs_path },
         })
@@ -164,6 +169,7 @@ impl Gpu {
                 usage: 0,
                 used_vram: 0,
                 total_vram: 0,
+                temp: None,
             },
         })
     }
@@ -176,6 +182,7 @@ impl Gpu {
             } => {
                 if !nvidia_runtime_active(sysfs_path) {
                     self.data.usage = 0;
+                    self.data.temp = None;
                     return;
                 }
 
@@ -190,6 +197,12 @@ impl Gpu {
                             self.data.used_vram = meminfo.total - meminfo.free;
                             self.data.total_vram = meminfo.total;
                         }
+                        #[allow(clippy::cast_precision_loss)]
+                        let celsius = device
+                            .temperature(TemperatureSensor::Gpu)
+                            .ok()
+                            .map(|celsius| celsius as f32);
+                        self.data.temp = celsius;
                     }
                 }
             }
@@ -199,6 +212,7 @@ impl Gpu {
                     .map(|usage| self.data.usage = usage);
                 _ = read_syspath(sysfs_path, "mem_info_vram_used")
                     .map(|used_vram| self.data.used_vram = used_vram);
+                self.data.temp = temp::device_temp(sysfs_path);
             }
         }
     }

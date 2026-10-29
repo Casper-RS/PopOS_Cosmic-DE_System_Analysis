@@ -16,6 +16,7 @@ use crate::{
     components::{
         gpu::GpuData,
         storage::Drive,
+        temp::format_celsius,
         run::{SimpleHistoryChart, SuperimposedHistoryChart},
     },
     config::{ComponentConfig, CpuView, IoView, PercentView},
@@ -103,6 +104,14 @@ fn io_colors(vis: &[IoView], default: (Color, Color)) -> (Color, Color) {
     }
 }
 
+/// `value`, followed by the temperature when there is one
+fn with_temp(value: String, temp: Option<f32>) -> String {
+    match temp {
+        Some(celsius) => format!("{value}  ·  {}", format_celsius(celsius)),
+        None => value,
+    }
+}
+
 fn legend<'a>(color: Color, label: String) -> Element<'a, Message> {
     let swatch = container(Column::new()).width(10).height(10).style(move |theme: &Theme| {
         container::Style {
@@ -153,6 +162,7 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
         Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
         None => fl!("drive-not-mounted", size = format_bytes(drive.size)),
     };
+    let usage = with_temp(usage, drive.temp);
     let mut column = Column::new()
         .push(
             Row::new()
@@ -255,7 +265,7 @@ impl SystemMonitorApplet {
         self.section(
             "cpu".into(),
             fl!("cpu"),
-            format!("{usage:.1}%"),
+            with_temp(format!("{usage:.1}%"), self.cpu_temp),
             SimpleHistoryChart::new(&self.global_cpu, 100.0, color).into(),
             vec![legend(
                 color,
@@ -393,7 +403,7 @@ impl SystemMonitorApplet {
         self.section(
             format!("gpu{idx}"),
             title,
-            format!("{}%", data.usage),
+            with_temp(format!("{}%", data.usage), data.temp),
             SuperimposedHistoryChart::new(
                 &self.vram[idx],
                 data.total_vram,
