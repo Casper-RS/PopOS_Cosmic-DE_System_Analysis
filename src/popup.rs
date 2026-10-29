@@ -104,7 +104,6 @@ fn io_colors(vis: &[IoView], default: (Color, Color)) -> (Color, Color) {
     }
 }
 
-/// `value`, followed by the temperature when there is one
 fn with_temp(value: String, temp: Option<f32>) -> String {
     match temp {
         Some(celsius) => format!("{value}  ·  {}", format_celsius(celsius)),

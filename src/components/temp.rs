@@ -1,26 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! Temperatures from the kernel's hwmon sensors.
-
 use std::fs::{read_dir, read_to_string};
 use std::path::{Path, PathBuf};
 
 const HWMON: &str = "/sys/class/hwmon";
 
-/// hwmon drivers that report the CPU temperature, best match first
 const CPU_DRIVERS: &[&str] = &["k10temp", "zenpower", "coretemp", "cpu_thermal"];
-/// Labels of the package temperature for those drivers, best match first
 const CPU_LABELS: &[&str] = &["Tdie", "Tctl", "Package id 0"];
 
-/// Reads a `temp*_input` file (millidegrees) as degrees Celsius
 pub fn read_celsius(path: &Path) -> Option<f32> {
-    let millis: i64 = read_to_string(path).ok()?.trim().parse().ok()?;
+    let millidegrees: i64 = read_to_string(path).ok()?.trim().parse().ok()?;
     #[allow(clippy::cast_precision_loss)]
-    Some(millis as f32 / 1000.0)
+    Some(millidegrees as f32 / 1000.0)
 }
 
-/// Finds the `temp*_input` file of the CPU package sensor.
-/// hwmon numbers change between boots, so this matches on the driver name.
+// hwmon numbers change between boots, so match on the driver name
 pub fn cpu_sensor() -> Option<PathBuf> {
     let hwmons: Vec<(String, PathBuf)> = read_dir(HWMON)
         .ok()?
@@ -36,7 +30,6 @@ pub fn cpu_sensor() -> Option<PathBuf> {
     })
 }
 
-/// The `temp*_input` whose label is the first match in `CPU_LABELS`
 fn labeled_input(hwmon: &Path) -> Option<PathBuf> {
     let labels: Vec<(String, PathBuf)> = read_dir(hwmon)
         .ok()?
@@ -55,8 +48,7 @@ fn labeled_input(hwmon: &Path) -> Option<PathBuf> {
     })
 }
 
-/// First temperature of a hwmon device below `device`, e.g. a drive's or a GPU's
-/// sysfs directory (`device/hwmon3` for NVMe, `device/hwmon/hwmon3` for most others).
+// NVMe drives have `device/hwmon3`, most other devices `device/hwmon/hwmon3`
 pub fn device_temp(device: &Path) -> Option<f32> {
     let find = |dir: &Path| {
         read_dir(dir).ok()?.find_map(|entry| {
@@ -72,7 +64,6 @@ pub fn device_temp(device: &Path) -> Option<f32> {
     find(&device.join("hwmon")).or_else(|| find(device))
 }
 
-/// `48 °C`
 pub fn format_celsius(celsius: f32) -> String {
     format!("{celsius:.0} °C")
 }

@@ -16,7 +16,6 @@ pub struct GpuData {
     pub usage: u64,
     pub used_vram: u64,
     pub total_vram: u64,
-    /// Degrees Celsius, `None` if the GPU has no sensor or is asleep
     pub temp: Option<f32>,
 }
 

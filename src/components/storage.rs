@@ -20,7 +20,6 @@ pub struct Drive {
     pub size: u64,
     /// Space used by mounted filesystems on this drive, `None` if nothing is mounted
     pub used: Option<u64>,
-    /// Degrees Celsius, `None` if the drive has no sensor
     pub temp: Option<f32>,
 }
 

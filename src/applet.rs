@@ -57,9 +57,7 @@ pub struct SystemMonitorApplet {
     pub vram: Vec<History>,
     /// physical drives and their used space, refreshed with the disk ticks
     pub drives: Vec<Drive>,
-    /// `temp*_input` file of the CPU package sensor, found once at startup
     cpu_sensor: Option<PathBuf>,
-    /// CPU temperature in degrees Celsius, refreshed with the cpu ticks while the popup is open
     pub cpu_temp: Option<f32>,
 }
 
@@ -198,7 +196,6 @@ impl Application for SystemMonitorApplet {
             Message::TickCpu => {
                 self.sys.refresh_cpu_usage();
                 self.global_cpu.push(self.sys.global_cpu_usage());
-                // The temperature is only shown in the popup
                 if self.popup.is_some() {
                     self.cpu_temp = self.cpu_sensor.as_deref().and_then(temp::read_celsius);
                 }
@@ -344,7 +341,6 @@ impl SystemMonitorApplet {
                         move |state: &mut SystemMonitorApplet| {
                             let new_id = window::Id::unique();
                             state.popup = Some(new_id);
-                            // Don't show stale temperatures until the next ticks
                             state.cpu_temp = state
                                 .cpu_sensor
                                 .as_deref()
