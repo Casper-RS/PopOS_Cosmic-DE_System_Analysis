@@ -19,9 +19,8 @@ write-rate = Zápis: { $rate }/s
 disk-summary = Č { $read }/s  Z { $write }/s
 drives = Disky
 drives-total = Celkem { $size }
-drive-not-mounted = { $size } · nepřipojeno
-drives-in-use = Používané ({ $count })
-other-drives = Další disky ({ $count })
+drives-mounted = Připojené ({ $count })
+drives-not-mounted = Nepřipojené ({ $count })
 gpu-usage = Využití: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
 

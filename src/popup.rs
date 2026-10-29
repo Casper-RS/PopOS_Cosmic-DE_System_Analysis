@@ -173,7 +173,7 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
     let label = format!("{} ({})", drive.model, drive.name);
     let usage = match drive.used {
         Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
-        None => fl!("drive-not-mounted", size = format_bytes(drive.size)),
+        None => format_bytes(drive.size),
     };
     let mut details = Row::new()
         .push(text::caption(usage).wrapping(Wrapping::None))
@@ -378,8 +378,8 @@ impl SystemMonitorApplet {
             let (mounted, others): (Vec<&Drive>, Vec<&Drive>) =
                 self.drives.iter().partition(|d| d.used.is_some());
             for (key, label, drives) in [
-                ("disk-in-use", fl!("drives-in-use", count = mounted.len()), mounted),
-                ("disk-others", fl!("other-drives", count = others.len()), others),
+                ("disk-mounted", fl!("drives-mounted", count = mounted.len()), mounted),
+                ("disk-others", fl!("drives-not-mounted", count = others.len()), others),
             ] {
                 if drives.is_empty() {
                     continue;
