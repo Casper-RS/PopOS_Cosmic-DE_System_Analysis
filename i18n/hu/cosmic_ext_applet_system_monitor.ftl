@@ -20,6 +20,7 @@ disk-summary = O { $read }/s  Í { $write }/s
 drives = Meghajtók
 drives-total = Összesen { $size }
 drive-not-mounted = { $size } · nincs csatolva
+drives-in-use = Használatban ({ $count })
 other-drives = További meghajtók ({ $count })
 gpu-usage = Használat: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)

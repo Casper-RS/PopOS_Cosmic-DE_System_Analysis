@@ -20,6 +20,7 @@ disk-summary = L { $read }/s  S { $write }/s
 drives = Schijven
 drives-total = { $size } totaal
 drive-not-mounted = { $size } · niet gekoppeld
+drives-in-use = In gebruik ({ $count })
 other-drives = Overige schijven ({ $count })
 gpu-usage = Gebruik: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)

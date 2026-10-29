@@ -7,7 +7,7 @@ use cosmic::{
     Element, Theme,
     iced::{
         Alignment, Length, Size,
-        widget::{rich_text, span, text::Wrapping},
+        widget::text::Wrapping,
     },
     widget::{Column, Row, button, container, icon, text},
 };
@@ -113,8 +113,8 @@ fn dim_color(theme: &Theme) -> cosmic::iced::Color {
     color
 }
 
-fn temp_text<'a>(celsius: f32) -> Element<'a, Message> {
-    text::caption(format_celsius(celsius))
+fn dim_text<'a>(label: impl Into<std::borrow::Cow<'a, str>> + 'a) -> Element<'a, Message> {
+    text::caption(label)
         .wrapping(Wrapping::None)
         .class(cosmic::theme::Text::Custom(|theme| {
             cosmic::iced::widget::text::Style {
@@ -175,21 +175,18 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
         Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
         None => fl!("drive-not-mounted", size = format_bytes(drive.size)),
     };
-    // One wrapping text, so a long model name can't push the usage out of the popup
-    let mut spans: Vec<cosmic::iced::advanced::text::Span<'_, ()>> = vec![span(label)];
+    let mut details = Row::new()
+        .push(text::caption(usage).wrapping(Wrapping::None))
+        .spacing(6);
     if let Some(celsius) = drive.temp {
-        let theme = cosmic::theme::active();
-        spans.push(span(format!("  {}", format_celsius(celsius))).color(dim_color(&theme)));
+        details = details.push(dim_text("·")).push(dim_text(format_celsius(celsius)));
     }
-    let label = rich_text(spans)
-        .size(12)
-        .font(cosmic::font::default())
-        .width(Length::Fill);
+    // The name gets the space that is left and wraps, so the details always fit
     let mut column = Column::new()
         .push(
             Row::new()
-                .push(label)
-                .push(text::caption(usage).wrapping(Wrapping::None))
+                .push(text::caption(label).width(Length::Fill))
+                .push(details)
                 .spacing(8),
         )
         .spacing(3);
@@ -225,7 +222,7 @@ impl SystemMonitorApplet {
             .spacing(8)
             .align_y(Alignment::Center);
         if let Some(celsius) = temp {
-            name = name.push(temp_text(celsius));
+            name = name.push(dim_text(format_celsius(celsius)));
         }
         let header = Row::new()
             .push(container(name).width(Length::Fill))
@@ -378,21 +375,22 @@ impl SystemMonitorApplet {
                     .padding(cosmic::iced::padding::top(6.0))
                     .into(),
             );
-            // Drives in use first, the rest behind an expandable row
             let (mounted, others): (Vec<&Drive>, Vec<&Drive>) =
                 self.drives.iter().partition(|d| d.used.is_some());
-            rows.extend(mounted.into_iter().map(|drive| drive_row(drive, back)));
-            if !others.is_empty() {
-                let expanded = self.config.popup_expanded.iter().any(|k| k == "disk-others");
+            for (key, label, drives) in [
+                ("disk-in-use", fl!("drives-in-use", count = mounted.len()), mounted),
+                ("disk-others", fl!("other-drives", count = others.len()), others),
+            ] {
+                if drives.is_empty() {
+                    continue;
+                }
+                let expanded = self.config.popup_expanded.iter().any(|k| k == key);
                 let arrow = icon::from_svg_bytes(if expanded { ARROW_UP } else { ARROW_DOWN })
                     .symbolic(true)
                     .icon()
                     .size(14);
                 let toggle = Row::new()
-                    .push(
-                        container(text::caption(fl!("other-drives", count = others.len())))
-                            .width(Length::Fill),
-                    )
+                    .push(container(text::caption(label)).width(Length::Fill))
                     .push(arrow)
                     .align_y(Alignment::Center);
                 rows.push(
@@ -400,14 +398,20 @@ impl SystemMonitorApplet {
                         .class(cosmic::theme::Button::Text)
                         .padding([2, 0])
                         .width(Length::Fill)
-                        .on_press(Message::ToggleExpanded("disk-others".into()))
+                        .on_press(Message::ToggleExpanded(key.into()))
                         .into(),
                 );
                 if expanded {
-                    rows.extend(others.into_iter().map(|drive| drive_row(drive, back)));
+                    rows.extend(drives.into_iter().map(|drive| drive_row(drive, back)));
                 }
             }
         }
+        let hottest = self
+            .drives
+            .iter()
+            .filter(|d| d.used.is_some())
+            .filter_map(|d| d.temp)
+            .reduce(f32::max);
         self.section(
             "disk".into(),
             fl!("disk"),
@@ -416,7 +420,7 @@ impl SystemMonitorApplet {
                 read = format_bytes(read),
                 write = format_bytes(write)
             ),
-            None,
+            hottest,
             SuperimposedHistoryChart::new_linked(&self.disk_write, &front, &self.disk_read, &back)
                 .into(),
             rows,

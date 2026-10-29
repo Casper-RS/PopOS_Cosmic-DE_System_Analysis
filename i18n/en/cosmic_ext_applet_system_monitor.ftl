@@ -20,6 +20,7 @@ disk-summary = R { $read }/s  W { $write }/s
 drives = Drives
 drives-total = { $size } total
 drive-not-mounted = { $size } · not mounted
+drives-in-use = In use ({ $count })
 other-drives = Other drives ({ $count })
 gpu-usage = Usage: { $usage }%
 gpu-vram = VRAM: { $used } / { $total } ({ $percent }%)
