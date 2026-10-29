@@ -5,7 +5,10 @@
 
 use cosmic::{
     Element, Theme,
-    iced::{Alignment, Length, Size},
+    iced::{
+        Alignment, Length, Size,
+        widget::{rich_text, span, text::Wrapping},
+    },
     widget::{Column, Row, button, container, icon, text},
 };
 
@@ -104,11 +107,22 @@ fn io_colors(vis: &[IoView], default: (Color, Color)) -> (Color, Color) {
     }
 }
 
-fn with_temp(value: String, temp: Option<f32>) -> String {
-    match temp {
-        Some(celsius) => format!("{value}  ·  {}", format_celsius(celsius)),
-        None => value,
-    }
+fn dim_color(theme: &Theme) -> cosmic::iced::Color {
+    let mut color = cosmic::iced::Color::from(theme.cosmic().on_bg_color());
+    color.a = 0.6;
+    color
+}
+
+fn temp_text<'a>(celsius: f32) -> Element<'a, Message> {
+    text::caption(format_celsius(celsius))
+        .wrapping(Wrapping::None)
+        .class(cosmic::theme::Text::Custom(|theme| {
+            cosmic::iced::widget::text::Style {
+                color: Some(dim_color(theme)),
+                ..Default::default()
+            }
+        }))
+        .into()
 }
 
 fn legend<'a>(color: Color, label: String) -> Element<'a, Message> {
@@ -161,12 +175,21 @@ fn drive_row<'a>(drive: &Drive, color: Color) -> Element<'a, Message> {
         Some(used) => format!("{} / {}", format_bytes(used), format_bytes(drive.size)),
         None => fl!("drive-not-mounted", size = format_bytes(drive.size)),
     };
-    let usage = with_temp(usage, drive.temp);
+    // One wrapping text, so a long model name can't push the usage out of the popup
+    let mut spans: Vec<cosmic::iced::advanced::text::Span<'_, ()>> = vec![span(label)];
+    if let Some(celsius) = drive.temp {
+        let theme = cosmic::theme::active();
+        spans.push(span(format!("  {}", format_celsius(celsius))).color(dim_color(&theme)));
+    }
+    let label = rich_text(spans)
+        .size(12)
+        .font(cosmic::font::default())
+        .width(Length::Fill);
     let mut column = Column::new()
         .push(
             Row::new()
-                .push(container(text::caption(label)).width(Length::Fill))
-                .push(text::caption(usage))
+                .push(label)
+                .push(text::caption(usage).wrapping(Wrapping::None))
                 .spacing(8),
         )
         .spacing(3);
@@ -187,6 +210,7 @@ impl SystemMonitorApplet {
         key: String,
         title: String,
         value: String,
+        temp: Option<f32>,
         chart: Element<'a, Message>,
         legends: Vec<Element<'a, Message>>,
     ) -> Element<'a, Message> {
@@ -196,9 +220,16 @@ impl SystemMonitorApplet {
             .symbolic(true)
             .icon()
             .size(16);
+        let mut name = Row::new()
+            .push(text::heading(title))
+            .spacing(8)
+            .align_y(Alignment::Center);
+        if let Some(celsius) = temp {
+            name = name.push(temp_text(celsius));
+        }
         let header = Row::new()
-            .push(container(text::heading(title)).width(Length::Fill))
-            .push(text::heading(value))
+            .push(container(name).width(Length::Fill))
+            .push(text::heading(value).wrapping(Wrapping::None))
             .push(arrow)
             .spacing(8)
             .align_y(Alignment::Center);
@@ -264,7 +295,8 @@ impl SystemMonitorApplet {
         self.section(
             "cpu".into(),
             fl!("cpu"),
-            with_temp(format!("{usage:.1}%"), self.cpu_temp),
+            format!("{usage:.1}%"),
+            self.cpu_temp,
             SimpleHistoryChart::new(&self.global_cpu, 100.0, color).into(),
             vec![legend(
                 color,
@@ -289,6 +321,7 @@ impl SystemMonitorApplet {
             "mem".into(),
             fl!("memory"),
             format!("{:.1}%", percent(used, total)),
+            None,
             SuperimposedHistoryChart::new(
                 &self.swap, swap_total, &front, &self.ram, total, &back,
             )
@@ -317,6 +350,7 @@ impl SystemMonitorApplet {
             "net".into(),
             fl!("network"),
             format!("↓ {}/s  ↑ {}/s", format_bytes(down), format_bytes(up)),
+            None,
             SuperimposedHistoryChart::new_linked(&self.upload, &front, &self.download, &back)
                 .into(),
             vec![
@@ -382,6 +416,7 @@ impl SystemMonitorApplet {
                 read = format_bytes(read),
                 write = format_bytes(write)
             ),
+            None,
             SuperimposedHistoryChart::new_linked(&self.disk_write, &front, &self.disk_read, &back)
                 .into(),
             rows,
@@ -402,7 +437,8 @@ impl SystemMonitorApplet {
         self.section(
             format!("gpu{idx}"),
             title,
-            with_temp(format!("{}%", data.usage), data.temp),
+            format!("{}%", data.usage),
+            data.temp,
             SuperimposedHistoryChart::new(
                 &self.vram[idx],
                 data.total_vram,
