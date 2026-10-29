@@ -11,6 +11,7 @@ use cosmic::{
     },
     widget::container,
 };
+use std::path::PathBuf;
 use std::time::Duration;
 use sysinfo::{
     CpuRefreshKind, Disk, DiskRefreshKind, Disks, MemoryRefreshKind, Networks, RefreshKind, System,
@@ -20,6 +21,7 @@ use crate::{
     components::{
         gpu::Gpus,
         storage::{self, Drive},
+        temp,
     },
     config::{ComponentConfig, Config, config_subscription},
     history::History,
@@ -55,6 +57,8 @@ pub struct SystemMonitorApplet {
     pub vram: Vec<History>,
     /// physical drives and their used space, refreshed with the disk ticks
     pub drives: Vec<Drive>,
+    cpu_sensor: Option<PathBuf>,
+    pub cpu_temp: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +137,8 @@ impl Application for SystemMonitorApplet {
             ),
             gpus,
             drives: Vec::new(),
+            cpu_sensor: temp::cpu_sensor(),
+            cpu_temp: None,
         };
 
         (app, Task::none())
@@ -190,6 +196,9 @@ impl Application for SystemMonitorApplet {
             Message::TickCpu => {
                 self.sys.refresh_cpu_usage();
                 self.global_cpu.push(self.sys.global_cpu_usage());
+                if self.popup.is_some() {
+                    self.cpu_temp = self.cpu_sensor.as_deref().and_then(temp::read_celsius);
+                }
             }
             Message::Surface(a) => {
                 return cosmic::task::message(cosmic::Action::Cosmic(
@@ -332,6 +341,9 @@ impl SystemMonitorApplet {
                         move |state: &mut SystemMonitorApplet| {
                             let new_id = window::Id::unique();
                             state.popup = Some(new_id);
+                            state.cpu_temp =
+                                state.cpu_sensor.as_deref().and_then(temp::read_celsius);
+                            state.drives = storage::drives(&state.disks);
                             let mut popup_settings = state.core.applet.get_popup_settings(
                                 state.core.main_window_id().unwrap(),
                                 new_id,
